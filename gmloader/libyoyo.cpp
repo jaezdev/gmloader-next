@@ -101,13 +101,16 @@ static const char *fake_functs[] = {
     "FS_file_text_clear_bad", "FS_file_text_clear_fail", "FS_file_text_close", "FS_file_text_eof",
     "FS_file_text_eoln", "FS_file_text_fail", "FS_file_text_good", "FS_file_text_open_append",
     "FS_file_text_open_append_ext", "FS_file_text_open_read", "FS_file_text_open_read_ext",
-    "FS_file_text_open_write", "FS_file_text_open_write_ext", "FS_file_text_read_char",
-    "FS_file_text_read_real", "FS_file_text_read_string", "FS_file_text_readln",
+    "FS_file_text_open_write", "FS_file_text_open_write_ext",
+    "FS_file_text_read_real",
     "FS_file_text_set_endl", "FS_file_text_set_endl_posix", "FS_file_text_set_endl_windows",
     "FS_file_text_unread", "FS_file_text_write_bom", "FS_file_text_write_flush",
     "FS_file_text_write_real", "FS_file_text_write_string", "FS_file_text_writeln",
-    /* GMIni (d_ini_*) extension - stubbed (d_ini_read_real handled separately) */
-    "d_ini_close", "d_ini_open", "d_ini_read_string", "d_ini_write_real", "d_ini_write_string",
+    /* GMIni (d_ini_*) extension - stubbed (d_ini_read_real/string handled separately) */
+    "d_ini_close", "d_ini_open", "d_ini_write_real", "d_ini_write_string",
+    /* NOTE: string-returning funcs (d_ini_read_string, FS_file_text_read_string,
+       FS_file_text_readln, FS_file_text_read_char) are registered separately
+       below so they return an actual string instead of a real (which crashes). */
 };
 double FORCE_PLATFORM = os_android;
 
@@ -186,6 +189,20 @@ ABI_ATTR static void d_ini_read_real_reimpl(RValue *ret, void *self, void *other
 {
     ret->kind = VALUE_REAL;
     ret->rvalue.val = (argc >= 3) ? args[2].rvalue.val : 0;
+}
+
+/* String-returning extension stubs must return a real GML string, not a real 0,
+   or the runner's native string handling segfaults. */
+ABI_ATTR static void stub_gml_string(RValue *ret, void *self, void *other, int argc, RValue *args)
+{
+    YYCreateString(ret, "");
+}
+
+/* d_ini_read_string(section, key, default) -> return the default string. */
+ABI_ATTR static void d_ini_read_string_reimpl(RValue *ret, void *self, void *other, int argc, RValue *args)
+{
+    const char *def = (argc >= 3) ? YYGetCStrHelper(args, 2) : "";
+    YYCreateString(ret, def ? def : "");
 }
 
 ABI_ATTR static void game_end_reimpl(RValue *ret, void *self, void *other, int argc, RValue *args)
@@ -447,6 +464,11 @@ void patch_libyoyo(so_module *mod)
 
     // Risk of Rain (2013): return the caller-supplied default for d_ini_read_real
     Function_Add("d_ini_read_real", d_ini_read_real_reimpl, 3, 1);
+    // String-returning extension stubs (must return a string, not real 0)
+    Function_Add("d_ini_read_string", d_ini_read_string_reimpl, 3, 1);
+    Function_Add("FS_file_text_read_string", stub_gml_string, 1, 1);
+    Function_Add("FS_file_text_readln", stub_gml_string, 1, 1);
+    Function_Add("FS_file_text_read_char", stub_gml_string, 1, 1);
 
     Function_Add("window_handle", window_handle, 0, 1);
     #ifndef VIDEO_SUPPORT //Add the stub if real video support isn't included
