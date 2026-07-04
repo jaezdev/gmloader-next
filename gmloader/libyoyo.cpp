@@ -90,6 +90,24 @@ uint8_t prev_kbd_state[N_KEYS] = {};
 uint8_t cur_keys[N_KEYS] = {};
 static const char *fake_functs[] = {
     "object_set_collisions",
+    /* Risk of Rain (2013): GMFile (FS_file_*) extension - stubbed to real 0 */
+    "FS_file_attributes", "FS_file_bin_bad", "FS_file_bin_clear_bad", "FS_file_bin_clear_fail",
+    "FS_file_bin_close", "FS_file_bin_eof", "FS_file_bin_fail", "FS_file_bin_good",
+    "FS_file_bin_open", "FS_file_bin_position", "FS_file_bin_read_byte", "FS_file_bin_read_dword",
+    "FS_file_bin_read_word", "FS_file_bin_seek", "FS_file_bin_seek_relative", "FS_file_bin_size",
+    "FS_file_bin_write_byte", "FS_file_bin_write_dword", "FS_file_bin_write_flush", "FS_file_bin_write_word",
+    "FS_file_copy", "FS_file_delete", "FS_file_exists", "FS_file_find_close",
+    "FS_file_find_first", "FS_file_find_next", "FS_file_rename", "FS_file_text_bad",
+    "FS_file_text_clear_bad", "FS_file_text_clear_fail", "FS_file_text_close", "FS_file_text_eof",
+    "FS_file_text_eoln", "FS_file_text_fail", "FS_file_text_good", "FS_file_text_open_append",
+    "FS_file_text_open_append_ext", "FS_file_text_open_read", "FS_file_text_open_read_ext",
+    "FS_file_text_open_write", "FS_file_text_open_write_ext", "FS_file_text_read_char",
+    "FS_file_text_read_real", "FS_file_text_read_string", "FS_file_text_readln",
+    "FS_file_text_set_endl", "FS_file_text_set_endl_posix", "FS_file_text_set_endl_windows",
+    "FS_file_text_unread", "FS_file_text_write_bom", "FS_file_text_write_flush",
+    "FS_file_text_write_real", "FS_file_text_write_string", "FS_file_text_writeln",
+    /* GMIni (d_ini_*) extension - stubbed (d_ini_read_real handled separately) */
+    "d_ini_close", "d_ini_open", "d_ini_read_string", "d_ini_write_real", "d_ini_write_string",
 };
 double FORCE_PLATFORM = os_android;
 
@@ -159,6 +177,15 @@ ABI_ATTR static void stub_gml(RValue *ret, void *self, void *other, int argc, RV
     ret->kind = VALUE_REAL;
     ret->rvalue.val = 0;
     /* */
+}
+
+/* Risk of Rain (2013): GMIni d_ini_read_real(section, key, default) has no
+   native impl under gmloader; return the caller's default so settings like
+   scale/volume aren't forced to 0 (which also crashed max()). */
+ABI_ATTR static void d_ini_read_real_reimpl(RValue *ret, void *self, void *other, int argc, RValue *args)
+{
+    ret->kind = VALUE_REAL;
+    ret->rvalue.val = (argc >= 3) ? args[2].rvalue.val : 0;
 }
 
 ABI_ATTR static void game_end_reimpl(RValue *ret, void *self, void *other, int argc, RValue *args)
@@ -417,6 +444,9 @@ void patch_libyoyo(so_module *mod)
     for (int i = 0; i < ARRAY_SIZE(fake_functs); i++) {
         Function_Add(fake_functs[i], stub_gml, 1, 1);
     }
+
+    // Risk of Rain (2013): return the caller-supplied default for d_ini_read_real
+    Function_Add("d_ini_read_real", d_ini_read_real_reimpl, 3, 1);
 
     Function_Add("window_handle", window_handle, 0, 1);
     #ifndef VIDEO_SUPPORT //Add the stub if real video support isn't included
