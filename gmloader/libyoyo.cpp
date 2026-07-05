@@ -92,6 +92,68 @@ static const char *fake_functs[] = {
     "object_set_collisions",
 };
 
+/* Risk of Rain Returns: steam funcs not covered by gmloader */
+static const char *rrr_steam_real0[] = {
+    "steam_deck", "steam_get_friends", "steam_input_activate_action_set",
+    "steam_input_activate_action_set_layer", "steam_input_deactivate_action_set_layer", "steam_input_deactivate_all_action_set_layers",
+    "steam_input_enable_action_event_callbacks", "steam_input_enable_device_callbacks", "steam_input_get_action_origin_from_xbox_origin",
+    "steam_input_get_action_set_handle", "steam_input_get_active_action_set_layers", "steam_input_get_analog_action_data",
+    "steam_input_get_analog_action_handle", "steam_input_get_analog_action_origins", "steam_input_get_connected_controllers",
+    "steam_input_get_controller_for_gamepad_index", "steam_input_get_current_action_set", "steam_input_get_device_binding_revision",
+    "steam_input_get_digital_action_data", "steam_input_get_digital_action_handle", "steam_input_get_digital_action_origins",
+    "steam_input_get_gamepad_index_for_controller", "steam_input_get_input_type_for_handle", "steam_input_get_motion_data",
+    "steam_input_get_remote_play_session_id", "steam_input_get_session_input_configuration_settings", "steam_input_init",
+    "steam_input_new_data_available", "steam_input_run_frame", "steam_input_set_dualsense_trigger_effect",
+    "steam_input_set_input_action_manifest_file_path", "steam_input_set_led_color", "steam_input_show_binding_panel",
+    "steam_input_shutdown", "steam_input_stop_analog_action_momentum", "steam_input_translate_action_origin",
+    "steam_input_trigger_haptic_pulse_legacy", "steam_input_trigger_repeated_haptic_pulse_legacy", "steam_input_trigger_simple_haptic_event",
+    "steam_input_trigger_vibration", "steam_input_trigger_vibration_extended", "steam_input_wait_for_data",
+    "steam_inventory_add_promo_item", "steam_inventory_add_promo_items", "steam_inventory_consume_item",
+    "steam_inventory_exchange_items", "steam_inventory_generate_items", "steam_inventory_get_all_items",
+    "steam_inventory_get_item_definition_property", "steam_inventory_get_item_price", "steam_inventory_get_items_by_id",
+    "steam_inventory_get_items_with_prices", "steam_inventory_load_item_definitions", "steam_inventory_remove_property",
+    "steam_inventory_request_eligible_promo_item_defs", "steam_inventory_request_prices", "steam_inventory_result_destroy",
+    "steam_inventory_result_get_item_property", "steam_inventory_result_get_items", "steam_inventory_result_get_status",
+    "steam_inventory_result_get_unix_timestamp", "steam_inventory_set_property_bool", "steam_inventory_set_property_float",
+    "steam_inventory_set_property_int", "steam_inventory_start_purchase", "steam_inventory_start_update_properties",
+    "steam_inventory_submit_update_properties", "steam_inventory_transfer_item_quantity", "steam_inventory_trigger_item_drop",
+    "steam_lobby_activate_invite_overlay", "steam_lobby_button", "steam_lobby_create",
+    "steam_lobby_get_chat_message_data", "steam_lobby_get_chat_message_size", "steam_lobby_get_chat_message_text",
+    "steam_lobby_get_data", "steam_lobby_get_lobby_id", "steam_lobby_get_member_count",
+    "steam_lobby_get_member_id", "steam_lobby_get_owner_id", "steam_lobby_is_owner",
+    "steam_lobby_join_id", "steam_lobby_leave", "steam_lobby_list_add_distance_filter",
+    "steam_lobby_list_add_near_filter", "steam_lobby_list_add_numerical_filter", "steam_lobby_list_get_count",
+    "steam_lobby_list_get_data", "steam_lobby_list_get_lobby_id", "steam_lobby_list_get_lobby_member_count",
+    "steam_lobby_list_get_lobby_member_id", "steam_lobby_list_get_lobby_owner_id", "steam_lobby_list_is_loading",
+    "steam_lobby_list_join", "steam_lobby_list_request", "steam_lobby_send_chat_message",
+    "steam_lobby_send_chat_message_buffer", "steam_lobby_set_data", "steam_lobby_set_joinable",
+    "steam_lobby_set_member_limit", "steam_lobby_set_owner_id", "steam_lobby_set_type",
+    "steam_music_get_status", "steam_music_is_enabled", "steam_music_is_playing",
+    "steam_music_pause", "steam_music_play", "steam_music_play_next",
+    "steam_music_play_previous", "steam_music_set_volume", "steam_net_accept_p",
+    "steam_net_close_p", "steam_net_packet_get_data", "steam_net_packet_get_sender_id",
+    "steam_net_packet_get_size", "steam_net_packet_receive", "steam_net_packet_send",
+    "steam_net_packet_set_type", "steam_net_set_auto_accept_p", "steam_timeline_add_event",
+    "steam_timeline_add_instantaneous_event", "steam_timeline_clear_state_description", "steam_timeline_end_event",
+    "steam_timeline_event_open_overlay", "steam_timeline_event_recording_exists", "steam_timeline_game_phase_add_tag",
+    "steam_timeline_game_phase_end", "steam_timeline_game_phase_open_overlay", "steam_timeline_game_phase_recording_exists",
+    "steam_timeline_game_phase_set_attribute", "steam_timeline_game_phase_set_id", "steam_timeline_game_phase_start",
+    "steam_timeline_remove_event", "steam_timeline_set_game_mode", "steam_timeline_set_state_description",
+    "steam_timeline_start_event", "steam_timeline_update_event", "steam_ugc_add_item_to_favorites",
+    "steam_ugc_details", "steam_ugc_download_item", "steam_ugc_get_user_item_vote",
+    "steam_ugc_query_add_excluded_tag", "steam_ugc_query_add_required_tag", "steam_ugc_remove_item_from_favorites",
+    "steam_ugc_set_user_item_vote",
+};
+
+static const char *rrr_steam_str[] = {
+    "steam_get_app_ownership_ticket_data", "steam_input_get_glyph_for_action_origin_legacy", "steam_input_get_glyph_for_xbox_origin",
+    "steam_input_get_glyph_png_for_action_origin", "steam_input_get_glyph_svg_for_action_origin", "steam_input_get_string_for_action_origin",
+    "steam_input_get_string_for_analog_action_name", "steam_input_get_string_for_digital_action_name", "steam_input_get_string_for_xbox_origin",
+    "steam_inventory_set_property_string", "steam_lobby_list_add_string_filter", "steam_user_request_encrypted_app_ticket",
+};
+
+
+
 /* Risk of Rain (2013) extension stubs (non-INI) */
 static const char *rr_stub_real0[] = {
     "FS_clean_temporary", "FS_copy_fast", "FS_directory_create", "FS_directory_delete",
@@ -309,6 +371,13 @@ ABI_ATTR static void RR_fsini_key_exists_ext(RValue *r, void*, void*, int argc, 
 ABI_ATTR static void RR_fsini_section_exists_ext(RValue *r, void*, void*, int argc, RValue *a){ RRIniData d; rr_ini_load(rr_resolve(rr_astr(argc,a,0)),d); rr_rreal(r, d.count(rr_astr(argc,a,1))?1:0); }
 ABI_ATTR static void RR_fsini_key_delete_ext(RValue *r, void*, void*, int argc, RValue *a){ std::string p=rr_resolve(rr_astr(argc,a,0)); RRIniData d; rr_ini_load(p,d); auto si=d.find(rr_astr(argc,a,1)); if(si!=d.end()){ si->second.erase(rr_astr(argc,a,2)); rr_ini_store(p,d);} rr_rreal(r,0); }
 ABI_ATTR static void RR_fsini_section_delete_ext(RValue *r, void*, void*, int argc, RValue *a){ std::string p=rr_resolve(rr_astr(argc,a,0)); RRIniData d; rr_ini_load(p,d); if(d.erase(rr_astr(argc,a,1))) rr_ini_store(p,d); rr_rreal(r,0); }
+
+/* ===== Risk of Rain Returns: RoRRWinExt display/window helpers ===== */
+ABI_ATTR static void RRR_disp_w(RValue *r, void*, void*, int argc, RValue *a){ rr_rreal(r, Graphics_DisplayWidth?Graphics_DisplayWidth():1024); }
+ABI_ATTR static void RRR_disp_h(RValue *r, void*, void*, int argc, RValue *a){ rr_rreal(r, Graphics_DisplayHeight?Graphics_DisplayHeight():768); }
+ABI_ATTR static void RRR_one(RValue *r, void*, void*, int argc, RValue *a){ rr_rreal(r, 1); }
+ABI_ATTR static void RRR_kbd(RValue *r, void*, void*, int argc, RValue *a){ YYCreateString(r, "en-US"); }
+ABI_ATTR static void RRR_pass(RValue *r, void*, void*, int argc, RValue *a){ rr_rreal(r, argc>=1?a[0].rvalue.val:0); }
 
 
 ABI_ATTR static void game_end_reimpl(RValue *ret, void *self, void *other, int argc, RValue *args)
@@ -598,6 +667,24 @@ void patch_libyoyo(so_module *mod)
     Function_Add("FS_ini_section_exists_ext", RR_fsini_section_exists_ext, -1, 1);
     Function_Add("FS_ini_key_delete_ext", RR_fsini_key_delete_ext, -1, 1);
     Function_Add("FS_ini_section_delete_ext", RR_fsini_section_delete_ext, -1, 1);
+
+    // Risk of Rain Returns: steam funcs missing from gmloader (mirror steam_stub -> 0)
+    for (size_t i = 0; i < ARRAY_SIZE(rrr_steam_real0); i++) Function_Add(rrr_steam_real0[i], stub_gml, -1, 0);
+    for (size_t i = 0; i < ARRAY_SIZE(rrr_steam_str); i++) Function_Add(rrr_steam_str[i], rr_stub_string, -1, 0);
+    // Risk of Rain Returns: RoRRWinExt
+    Function_Add("win_display_count", RRR_one, -1, 1);
+    Function_Add("win_display_update_cache", stub_gml, -1, 1);
+    Function_Add("win_display_get_x", stub_gml, -1, 1);
+    Function_Add("win_display_get_y", stub_gml, -1, 1);
+    Function_Add("win_display_get_width", RRR_disp_w, -1, 1);
+    Function_Add("win_display_get_height", RRR_disp_h, -1, 1);
+    Function_Add("win_display_get_default_monitor_index", stub_gml, -1, 1);
+    Function_Add("win_window_set_popup", stub_gml, -1, 1);
+    Function_Add("win_get_keyboard_layout_name", RRR_kbd, -1, 1);
+    Function_Add("win_vsc_to_vk", RRR_pass, -1, 1);
+    Function_Add("win_vk_to_vsc", RRR_pass, -1, 1);
+    Function_Add("display_mouse_unlock", stub_gml, -1, 1);
+    Function_Add("display_mouse_bounds_raw", stub_gml, -1, 1);
 
 
     Function_Add("window_handle", window_handle, 0, 1);
