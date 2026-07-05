@@ -92,7 +92,7 @@ static const char *fake_functs[] = {
     "object_set_collisions",
 };
 
-/* Risk of Rain (2013): full extension function set (GMFile FS_*, GMIni d_ini_*) */
+/* Risk of Rain (2013) extension stubs (non-INI) */
 static const char *rr_stub_real0[] = {
     "FS_clean_temporary", "FS_copy_fast", "FS_directory_create", "FS_directory_delete",
     "FS_directory_exists", "FS_export_image", "FS_export_image_adv", "FS_export_raw",
@@ -109,13 +109,8 @@ static const char *rr_stub_real0[] = {
     "FS_file_text_open_write", "FS_file_text_open_write_ext", "FS_file_text_read_real", "FS_file_text_set_endl",
     "FS_file_text_set_endl_posix", "FS_file_text_set_endl_windows", "FS_file_text_unread", "FS_file_text_write_bom",
     "FS_file_text_write_flush", "FS_file_text_write_real", "FS_file_text_write_string", "FS_file_text_writeln",
-    "FS_gmfilesystem_initialize_detail", "FS_import_image", "FS_ini_close", "FS_ini_close_ext",
-    "FS_ini_key_delete", "FS_ini_key_delete_ext", "FS_ini_key_exists", "FS_ini_key_exists_ext",
-    "FS_ini_open", "FS_ini_open_ext", "FS_ini_section_delete", "FS_ini_section_delete_ext",
-    "FS_ini_section_exists", "FS_ini_section_exists_ext", "FS_ini_write_real", "FS_ini_write_real_ext",
-    "FS_ini_write_string", "FS_ini_write_string_ext", "FS_max_open", "FS_set_gm_save_area",
-    "FS_set_locale", "FS_set_working_directory", "d_ini_close", "d_ini_open",
-    "d_ini_write_real", "d_ini_write_string",
+    "FS_gmfilesystem_initialize_detail", "FS_import_image", "FS_max_open", "FS_set_gm_save_area",
+    "FS_set_locale", "FS_set_working_directory",
 };
 
 static const char *rr_stub_str[] = {
@@ -123,13 +118,6 @@ static const char *rr_stub_str[] = {
     "FS_unique_fname",
 };
 
-static const char *rr_read_real[] = {
-    "FS_ini_read_real", "FS_ini_read_real_ext", "d_ini_read_real",
-};
-
-static const char *rr_read_string[] = {
-    "FS_ini_read_string", "FS_ini_read_string_ext", "d_ini_read_string",
-};
 
 double FORCE_PLATFORM = os_android;
 
@@ -201,23 +189,127 @@ ABI_ATTR static void stub_gml(RValue *ret, void *self, void *other, int argc, RV
     /* */
 }
 
-/* RoR: string-returning extension stubs must return a real GML string. */
 ABI_ATTR static void rr_stub_string(RValue *ret, void *self, void *other, int argc, RValue *args)
 {
     YYCreateString(ret, "");
 }
-/* RoR: ini read_real(...default) -> return the caller's default (last arg). */
-ABI_ATTR static void rr_read_real_default(RValue *ret, void *self, void *other, int argc, RValue *args)
+/* ===== Risk of Rain (2013): real INI read/write for d_ini_* / FS_ini_* ===== */
+#include <map>
+#include <unistd.h>
+
+typedef std::map<std::string, std::map<std::string,std::string>> RRIniData;
+
+static std::string rr_save_base()
 {
-    ret->kind = VALUE_REAL;
-    ret->rvalue.val = (argc >= 1) ? args[argc-1].rvalue.val : 0;
+    std::string sd = gmloader_config.save_dir;
+    if (sd.empty()) sd = ".";
+    if (sd[0] != '/') {
+        char cwd[4096];
+        if (getcwd(cwd, sizeof(cwd))) sd = std::string(cwd) + "/" + sd;
+    }
+    if (!sd.empty() && sd.back() != '/') sd += '/';
+    return sd;
 }
-/* RoR: ini read_string(...default) -> return the caller's default string. */
-ABI_ATTR static void rr_read_string_default(RValue *ret, void *self, void *other, int argc, RValue *args)
+static std::string rr_resolve(const char *fname)
 {
-    const char *def = (argc >= 1) ? YYGetCStrHelper(args, argc-1) : "";
-    YYCreateString(ret, def ? def : "");
+    if (!fname || !*fname) return rr_save_base();
+    if (fname[0] == '/') return std::string(fname);
+    return rr_save_base() + fname;
 }
+static void rr_trim(std::string &x)
+{
+    size_t a = x.find_first_not_of(" \t\r\n");
+    size_t b = x.find_last_not_of(" \t\r\n");
+    if (a == std::string::npos) x.clear(); else x = x.substr(a, b - a + 1);
+}
+static void rr_ini_load(const std::string &path, RRIniData &d)
+{
+    d.clear();
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f) return;
+    char line[2048]; std::string cur;
+    while (fgets(line, sizeof(line), f)) {
+        std::string s(line); rr_trim(s);
+        if (s.empty() || s[0] == ';' || s[0] == '#') continue;
+        if (s.front() == '[' && s.back() == ']') { cur = s.substr(1, s.size() - 2); rr_trim(cur); }
+        else {
+            size_t eq = s.find('=');
+            if (eq != std::string::npos) {
+                std::string k = s.substr(0, eq), v = s.substr(eq + 1);
+                rr_trim(k); rr_trim(v);
+                if (v.size() >= 2 && v.front() == '"' && v.back() == '"') v = v.substr(1, v.size() - 2);
+                d[cur][k] = v;
+            }
+        }
+    }
+    fclose(f);
+}
+static void rr_ini_store(const std::string &path, RRIniData &d)
+{
+    FILE *f = fopen(path.c_str(), "wb");
+    if (!f) { warning("RR: failed to write ini %s\n", path.c_str()); return; }
+    for (auto &sp : d) {
+        fprintf(f, "[%s]\n", sp.first.c_str());
+        for (auto &kv : sp.second) fprintf(f, "%s=\"%s\"\n", kv.first.c_str(), kv.second.c_str());
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+
+struct RRIniHandle { std::string path; RRIniData data; bool open = false, dirty = false; };
+static RRIniHandle g_dini, g_fsini;
+
+static const char *rr_astr(int argc, RValue *args, int i) { return (i < argc) ? (YYGetCStrHelper(args, i) ? YYGetCStrHelper(args, i) : "") : ""; }
+static double      rr_areal(int argc, RValue *args, int i) { return (i < argc) ? args[i].rvalue.val : 0; }
+static void        rr_rreal(RValue *ret, double v) { ret->kind = VALUE_REAL; ret->rvalue.val = v; }
+
+static void rr_h_open(RRIniHandle &h, const char *fname) {
+    if (h.open && h.dirty) rr_ini_store(h.path, h.data);
+    h.path = rr_resolve(fname); rr_ini_load(h.path, h.data); h.open = true; h.dirty = false;
+}
+static void rr_h_close(RRIniHandle &h) {
+    if (h.open && h.dirty) rr_ini_store(h.path, h.data);
+    h.open = false; h.dirty = false;
+}
+static bool rr_h_get(RRIniHandle &h, const char *s, const char *k, std::string &out) {
+    auto si = h.data.find(s); if (si == h.data.end()) return false;
+    auto ki = si->second.find(k); if (ki == si->second.end()) return false;
+    out = ki->second; return true;
+}
+static void rr_h_set(RRIniHandle &h, const char *s, const char *k, const std::string &v) { h.data[s][k] = v; h.dirty = true; }
+
+/* ---- d_ini_* (Prefs.ini etc.) ---- */
+ABI_ATTR static void RR_dini_open(RValue *r, void*, void*, int argc, RValue *a){ rr_h_open(g_dini, rr_astr(argc,a,0)); rr_rreal(r,0); }
+ABI_ATTR static void RR_dini_close(RValue *r, void*, void*, int argc, RValue *a){ rr_h_close(g_dini); rr_rreal(r,0); }
+ABI_ATTR static void RR_dini_read_real(RValue *r, void*, void*, int argc, RValue *a){ std::string v; rr_rreal(r, rr_h_get(g_dini,rr_astr(argc,a,0),rr_astr(argc,a,1),v)?atof(v.c_str()):rr_areal(argc,a,2)); }
+ABI_ATTR static void RR_dini_read_string(RValue *r, void*, void*, int argc, RValue *a){ std::string v; if(rr_h_get(g_dini,rr_astr(argc,a,0),rr_astr(argc,a,1),v)) YYCreateString(r,v.c_str()); else YYCreateString(r,rr_astr(argc,a,2)); }
+ABI_ATTR static void RR_dini_write_real(RValue *r, void*, void*, int argc, RValue *a){ char b[64]; snprintf(b,sizeof(b),"%f",rr_areal(argc,a,2)); rr_h_set(g_dini,rr_astr(argc,a,0),rr_astr(argc,a,1),b); rr_rreal(r,0); }
+ABI_ATTR static void RR_dini_write_string(RValue *r, void*, void*, int argc, RValue *a){ rr_h_set(g_dini,rr_astr(argc,a,0),rr_astr(argc,a,1),rr_astr(argc,a,2)); rr_rreal(r,0); }
+
+/* ---- FS_ini_* stateful (Save.ini etc.) ---- */
+ABI_ATTR static void RR_fsini_open(RValue *r, void*, void*, int argc, RValue *a){ rr_h_open(g_fsini, rr_astr(argc,a,0)); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_close(RValue *r, void*, void*, int argc, RValue *a){ rr_h_close(g_fsini); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_read_real(RValue *r, void*, void*, int argc, RValue *a){ std::string v; rr_rreal(r, rr_h_get(g_fsini,rr_astr(argc,a,0),rr_astr(argc,a,1),v)?atof(v.c_str()):rr_areal(argc,a,2)); }
+ABI_ATTR static void RR_fsini_read_string(RValue *r, void*, void*, int argc, RValue *a){ std::string v; if(rr_h_get(g_fsini,rr_astr(argc,a,0),rr_astr(argc,a,1),v)) YYCreateString(r,v.c_str()); else YYCreateString(r,rr_astr(argc,a,2)); }
+ABI_ATTR static void RR_fsini_write_real(RValue *r, void*, void*, int argc, RValue *a){ char b[64]; snprintf(b,sizeof(b),"%f",rr_areal(argc,a,2)); rr_h_set(g_fsini,rr_astr(argc,a,0),rr_astr(argc,a,1),b); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_write_string(RValue *r, void*, void*, int argc, RValue *a){ rr_h_set(g_fsini,rr_astr(argc,a,0),rr_astr(argc,a,1),rr_astr(argc,a,2)); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_key_exists(RValue *r, void*, void*, int argc, RValue *a){ std::string v; rr_rreal(r, rr_h_get(g_fsini,rr_astr(argc,a,0),rr_astr(argc,a,1),v)?1:0); }
+ABI_ATTR static void RR_fsini_section_exists(RValue *r, void*, void*, int argc, RValue *a){ rr_rreal(r, g_fsini.data.count(rr_astr(argc,a,0))?1:0); }
+ABI_ATTR static void RR_fsini_key_delete(RValue *r, void*, void*, int argc, RValue *a){ auto si=g_fsini.data.find(rr_astr(argc,a,0)); if(si!=g_fsini.data.end()){ si->second.erase(rr_astr(argc,a,1)); g_fsini.dirty=true;} rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_section_delete(RValue *r, void*, void*, int argc, RValue *a){ if(g_fsini.data.erase(rr_astr(argc,a,0))) g_fsini.dirty=true; rr_rreal(r,0); }
+
+/* ---- FS_ini_*_ext one-shot (file given per call as arg0) ---- */
+ABI_ATTR static void RR_fsini_open_ext(RValue *r, void*, void*, int argc, RValue *a){ rr_h_open(g_fsini, rr_astr(argc,a,0)); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_close_ext(RValue *r, void*, void*, int argc, RValue *a){ rr_h_close(g_fsini); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_read_real_ext(RValue *r, void*, void*, int argc, RValue *a){ RRIniData d; rr_ini_load(rr_resolve(rr_astr(argc,a,0)),d); auto si=d.find(rr_astr(argc,a,1)); if(si!=d.end()){auto ki=si->second.find(rr_astr(argc,a,2)); if(ki!=si->second.end()){rr_rreal(r,atof(ki->second.c_str())); return;}} rr_rreal(r, rr_areal(argc,a,3)); }
+ABI_ATTR static void RR_fsini_read_string_ext(RValue *r, void*, void*, int argc, RValue *a){ RRIniData d; rr_ini_load(rr_resolve(rr_astr(argc,a,0)),d); auto si=d.find(rr_astr(argc,a,1)); if(si!=d.end()){auto ki=si->second.find(rr_astr(argc,a,2)); if(ki!=si->second.end()){YYCreateString(r,ki->second.c_str()); return;}} YYCreateString(r, rr_astr(argc,a,3)); }
+ABI_ATTR static void RR_fsini_write_real_ext(RValue *r, void*, void*, int argc, RValue *a){ std::string p=rr_resolve(rr_astr(argc,a,0)); RRIniData d; rr_ini_load(p,d); char b[64]; snprintf(b,sizeof(b),"%f",rr_areal(argc,a,3)); d[rr_astr(argc,a,1)][rr_astr(argc,a,2)]=b; rr_ini_store(p,d); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_write_string_ext(RValue *r, void*, void*, int argc, RValue *a){ std::string p=rr_resolve(rr_astr(argc,a,0)); RRIniData d; rr_ini_load(p,d); d[rr_astr(argc,a,1)][rr_astr(argc,a,2)]=rr_astr(argc,a,3); rr_ini_store(p,d); rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_key_exists_ext(RValue *r, void*, void*, int argc, RValue *a){ RRIniData d; rr_ini_load(rr_resolve(rr_astr(argc,a,0)),d); auto si=d.find(rr_astr(argc,a,1)); rr_rreal(r, (si!=d.end() && si->second.count(rr_astr(argc,a,2)))?1:0); }
+ABI_ATTR static void RR_fsini_section_exists_ext(RValue *r, void*, void*, int argc, RValue *a){ RRIniData d; rr_ini_load(rr_resolve(rr_astr(argc,a,0)),d); rr_rreal(r, d.count(rr_astr(argc,a,1))?1:0); }
+ABI_ATTR static void RR_fsini_key_delete_ext(RValue *r, void*, void*, int argc, RValue *a){ std::string p=rr_resolve(rr_astr(argc,a,0)); RRIniData d; rr_ini_load(p,d); auto si=d.find(rr_astr(argc,a,1)); if(si!=d.end()){ si->second.erase(rr_astr(argc,a,2)); rr_ini_store(p,d);} rr_rreal(r,0); }
+ABI_ATTR static void RR_fsini_section_delete_ext(RValue *r, void*, void*, int argc, RValue *a){ std::string p=rr_resolve(rr_astr(argc,a,0)); RRIniData d; rr_ini_load(p,d); if(d.erase(rr_astr(argc,a,1))) rr_ini_store(p,d); rr_rreal(r,0); }
+
 
 ABI_ATTR static void game_end_reimpl(RValue *ret, void *self, void *other, int argc, RValue *args)
 {
@@ -476,15 +568,37 @@ void patch_libyoyo(so_module *mod)
         Function_Add(fake_functs[i], stub_gml, 1, 1);
     }
 
-    // Risk of Rain (2013): register all 97 extension functions with typed stubs.
-    for (size_t i = 0; i < ARRAY_SIZE(rr_stub_real0); i++)
-        Function_Add(rr_stub_real0[i], stub_gml, -1, 1);
-    for (size_t i = 0; i < ARRAY_SIZE(rr_stub_str); i++)
-        Function_Add(rr_stub_str[i], rr_stub_string, -1, 1);
-    for (size_t i = 0; i < ARRAY_SIZE(rr_read_real); i++)
-        Function_Add(rr_read_real[i], rr_read_real_default, -1, 1);
-    for (size_t i = 0; i < ARRAY_SIZE(rr_read_string); i++)
-        Function_Add(rr_read_string[i], rr_read_string_default, -1, 1);
+    // Risk of Rain (2013): typed stubs for file/misc extension funcs
+    for (size_t i = 0; i < ARRAY_SIZE(rr_stub_real0); i++) Function_Add(rr_stub_real0[i], stub_gml, -1, 1);
+    for (size_t i = 0; i < ARRAY_SIZE(rr_stub_str); i++) Function_Add(rr_stub_str[i], rr_stub_string, -1, 1);
+    // Risk of Rain (2013): REAL INI read/write (settings + saves)
+    Function_Add("d_ini_open", RR_dini_open, -1, 1);
+    Function_Add("d_ini_close", RR_dini_close, -1, 1);
+    Function_Add("d_ini_read_real", RR_dini_read_real, -1, 1);
+    Function_Add("d_ini_read_string", RR_dini_read_string, -1, 1);
+    Function_Add("d_ini_write_real", RR_dini_write_real, -1, 1);
+    Function_Add("d_ini_write_string", RR_dini_write_string, -1, 1);
+    Function_Add("FS_ini_open", RR_fsini_open, -1, 1);
+    Function_Add("FS_ini_close", RR_fsini_close, -1, 1);
+    Function_Add("FS_ini_read_real", RR_fsini_read_real, -1, 1);
+    Function_Add("FS_ini_read_string", RR_fsini_read_string, -1, 1);
+    Function_Add("FS_ini_write_real", RR_fsini_write_real, -1, 1);
+    Function_Add("FS_ini_write_string", RR_fsini_write_string, -1, 1);
+    Function_Add("FS_ini_key_exists", RR_fsini_key_exists, -1, 1);
+    Function_Add("FS_ini_section_exists", RR_fsini_section_exists, -1, 1);
+    Function_Add("FS_ini_key_delete", RR_fsini_key_delete, -1, 1);
+    Function_Add("FS_ini_section_delete", RR_fsini_section_delete, -1, 1);
+    Function_Add("FS_ini_open_ext", RR_fsini_open_ext, -1, 1);
+    Function_Add("FS_ini_close_ext", RR_fsini_close_ext, -1, 1);
+    Function_Add("FS_ini_read_real_ext", RR_fsini_read_real_ext, -1, 1);
+    Function_Add("FS_ini_read_string_ext", RR_fsini_read_string_ext, -1, 1);
+    Function_Add("FS_ini_write_real_ext", RR_fsini_write_real_ext, -1, 1);
+    Function_Add("FS_ini_write_string_ext", RR_fsini_write_string_ext, -1, 1);
+    Function_Add("FS_ini_key_exists_ext", RR_fsini_key_exists_ext, -1, 1);
+    Function_Add("FS_ini_section_exists_ext", RR_fsini_section_exists_ext, -1, 1);
+    Function_Add("FS_ini_key_delete_ext", RR_fsini_key_delete_ext, -1, 1);
+    Function_Add("FS_ini_section_delete_ext", RR_fsini_section_delete_ext, -1, 1);
+
 
     Function_Add("window_handle", window_handle, 0, 1);
     #ifndef VIDEO_SUPPORT //Add the stub if real video support isn't included
